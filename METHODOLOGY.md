@@ -56,8 +56,15 @@ and refuse to produce results that violate them.
 ## Stop and ask rather than proceed if
 
 - A metric looks too good — e.g. >50% PGD robust accuracy on a clean-trained model.
-  That is a bug, not a discovery. Published work reports ~17.6% for LeNet-5 at
-  ε=0.3; anything near 80% means gradient masking or a normalisation error.
+  That is a bug, not a discovery; anything near 80% means gradient masking or a
+  normalisation error.
+  **Correction to PROJECT_PLAN.md Phase 1.2:** the plan predicts 10–20% (citing
+  ~17.6%) for a clean-trained LeNet-5 under PGD-40 at ε=0.3. The measured value is
+  **0.0%**, which matches Madry et al. (2018) Table 1 for a naturally-trained MNIST
+  model. `scripts/check_attacks.py` rules out gradient masking. Do not "fix" the
+  attack to reach 17.6% — that figure is closer to what the normalisation bug
+  produces (ε=0.3 in standardised space is ε≈0.092 in pixels, giving PGD 3.0% /
+  FGSM 24.3%) than to a correct pixel-space attack.
 - Reproducing a baseline requires changing the protocol to hit a target number.
 - Pruning contradicts Frankle & Carbin — accuracy collapsing immediately at low
   sparsity means the mask is being applied wrongly. Debug before reporting.

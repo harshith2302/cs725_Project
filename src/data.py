@@ -13,14 +13,35 @@ normalisation happen inside the model (see ``src/models.py``).
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 
+import numpy as np
 import torch
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, TensorDataset
 from torchvision import datasets, transforms
 
 SPLIT_SEED = 1234
 N_TRAIN = 55_000
 N_VAL = 5_000
+
+# The 15 corruptions of Mu & Gilmer (2019), 10,000 test images each.
+MNIST_C_CORRUPTIONS = [
+    "brightness",
+    "canny_edges",
+    "dotted_line",
+    "fog",
+    "glass_blur",
+    "impulse_noise",
+    "motion_blur",
+    "rotate",
+    "scale",
+    "shear",
+    "shot_noise",
+    "spatter",
+    "stripe",
+    "translate",
+    "zigzag",
+]
 
 # Matches the augmentation in legacy/src/data/loader.py so the comparison
 # against the original reported numbers stays meaningful.
@@ -82,3 +103,44 @@ def get_loaders(
         val=DataLoader(Subset(val_full, val_idx), batch_size=eval_batch_size, shuffle=False),
         test=DataLoader(test_set, batch_size=eval_batch_size, shuffle=False),
     )
+
+
+def get_mnist_c_loaders(
+    root: str = "./data/MNIST-C",
+    corruptions=None,
+    eval_batch_size: int = 1000,
+    limit: int = None,
+) -> dict:
+    """One loader per corruption, in the same raw [0,1] space as the clean test set.
+
+    Expects the Zenodo layout: ``<root>/<corruption>/test_images.npy`` of shape
+    (10000, 28, 28, 1) uint8, plus ``test_labels.npy``. Fetch with
+    ``scripts/download_mnistc.py``.
+    """
+    base = Path(root)
+    if not base.exists():
+        raise FileNotFoundError(
+            f"MNIST-C not found at {base}. Run: python scripts/download_mnistc.py"
+        )
+    # Tolerate the archive being extracted one level deeper than expected.
+    if not (base / "identity").exists() and (base / "mnist_c").exists():
+        base = base / "mnist_c"
+
+    wanted = corruptions or MNIST_C_CORRUPTIONS
+    loaders = {}
+    for name in wanted:
+        d = base / name
+        if not d.exists():
+            raise FileNotFoundError(f"missing corruption directory: {d}")
+        images = np.load(d / "test_images.npy")
+        labels = np.load(d / "test_labels.npy")
+        if limit:
+            images, labels = images[:limit], labels[:limit]
+
+        # (N, 28, 28, 1) uint8 -> (N, 1, 28, 28) float in [0,1], matching get_loaders.
+        x = torch.from_numpy(images).permute(0, 3, 1, 2).float().div_(255.0)
+        y = torch.from_numpy(labels).long()
+        if x.shape[1:] != (1, 28, 28):
+            raise ValueError(f"{name}: unexpected image shape {tuple(x.shape)}")
+        loaders[name] = DataLoader(TensorDataset(x, y), batch_size=eval_batch_size, shuffle=False)
+    return loaders
