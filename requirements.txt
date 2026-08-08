@@ -1,9 +1,18 @@
-torch
-torchvision
-numpy
-pandas
-matplotlib
-seaborn
-scikit-learn
-jupyter
-tqdm
+# Pinned to the environment that produced results/raw/*.json.
+# Quantization backends differ between torch versions, so the exact version is
+# also recorded inside every run's JSON record (see src/utils.py:machine_spec).
+torch==2.10.0
+torchvision==0.25.0
+numpy>=1.26
+pandas>=2.0
+matplotlib>=3.8
+seaborn>=0.13
+pyyaml>=6.0
+tqdm>=4.66
+scipy>=1.11          # Welch's t-test in Phase 4
+scikit-learn>=1.3    # confusion matrices / reports
+jupyter>=1.0
+
+# Phase 2+
+kaggle>=1.6          # kernel push/poll/pull orchestration
+# torchattacks>=3.5  # optional cross-check only; PGD is implemented in src/attacks.py first
